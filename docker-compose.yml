@@ -1,0 +1,34 @@
+services:
+  redpanda:
+    image: redpandadata/redpanda:latest
+    container_name: eventpulse-redpanda
+    command:
+      - redpanda
+      - start
+      - --overprovisioned
+      - --smp=1
+      - --memory=1G
+      - --reserve-memory=0M
+      - --node-id=0
+      - --check=false
+      - --kafka-addr=PLAINTEXT://0.0.0.0:9092
+      - --advertise-kafka-addr=PLAINTEXT://redpanda:9092
+    ports:
+      - "9092:9092"
+    volumes:
+      - redpanda-data:/var/lib/redpanda/data
+
+  api:
+    build: .
+    container_name: eventpulse-api
+    environment:
+      KAFKA_BROKERS: redpanda:9092
+      DEMO_MODE: "false"
+    ports:
+      - "8000:8000"
+    depends_on:
+      - redpanda
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+
+volumes:
+  redpanda-data:
