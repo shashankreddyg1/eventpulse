@@ -138,6 +138,12 @@
 <script>
 const feedEl = document.getElementById('feed');
 const MAX_FEED = 60;
+// Public demo API (Vercel serverless, synthesized demo data). The dashboard
+// tries the same-origin API first, then this one, then the browser simulator.
+const API_BASE = 'https://eventpulse-p35urqhqi-remy-4674.vercel.app';
+let apiMode = false;
+const seenIds = new Set();
+const replayedIds = new Set();
 const hasAnime = typeof anime !== 'undefined';
 // Anime.js entrance: staggered fade + rise. Content is visible without it
 // (no opacity-0 in CSS), so a blocked CDN never hides the page.
@@ -202,8 +208,61 @@ async function refreshPanels(){
   } catch(e) { /* static demo mode: panels update from simulator */ }
 }
 async function replay(id){
+  if (apiMode) { await replayApi(id); return; }
   await fetch('/dlq/' + id + '/replay', {method:'POST'});
   refreshPanels();
+}
+// Fetch JSON with a timeout; null on any failure (404, network, bad JSON).
+async function okJson(url, ms){
+  const ctl = new AbortController();
+  const t = setTimeout(function(){ ctl.abort(); }, ms || 5000);
+  try {
+    const r = await fetch(url, {signal: ctl.signal});
+    if (!r.ok) return null;
+    return await r.json();
+  } catch(e) { return null; } finally { clearTimeout(t); }
+}
+function setApiBadge(){
+  const badge = document.getElementById('modeBadge');
+  badge.innerHTML = '<span class="dot"></span>LIVE · demo API (Vercel)';
+  badge.className = 'badge kafka';
+  document.getElementById('modeNote').textContent = 'This page is served by the demo API on Vercel: synthesized demo data in the same event shapes as the real pipeline. Run docker compose up for the real Kafka broker.';
+}
+// API mode: poll the Vercel demo API. Replayed DLQ ids are filtered
+// client-side because the stateless API cannot persist the replay.
+async function pollApi(){
+  const events = await okJson(API_BASE + '/events?limit=100');
+  if (events) {
+    for (const ev of events) {
+      if (!seenIds.has(ev.id)) { seenIds.add(ev.id); renderEvent(ev); }
+    }
+  }
+  const dlq = await okJson(API_BASE + '/dlq');
+  const open = dlq ? dlq.filter(function(d){ return !replayedIds.has(d.event.id); }) : null;
+  const s = await okJson(API_BASE + '/stats');
+  if (s) {
+    if (open) s.dlq_depth = open.length;
+    renderStats(s);
+  }
+  if (open) {
+    document.getElementById('dlq').innerHTML = open.length === 0 ? 'Empty — healthy.' :
+      '<table><tr><th>Event</th><th>Error</th><th></th></tr>' + open.map(function(d){
+        return '<tr><td>' + d.event.type + '<br><span style="color:#a1a1aa">' + d.event.id + '</span></td><td>' + d.error + '</td>' +
+        '<td><button onclick="replayApi(\'' + d.event.id + '\')">Replay</button></td></tr>';
+      }).join('') + '</table>';
+  }
+  const flags = await okJson(API_BASE + '/flagged');
+  if (flags) {
+    document.getElementById('flags').innerHTML = flags.length === 0 ? 'None yet.' :
+      '<table><tr><th>Order key</th><th>Reason</th></tr>' + flags.slice(-10).reverse().map(function(f){
+        return '<tr><td>' + f.key + '</td><td class="flag">' + f.reason + '</td></tr>';
+      }).join('') + '</table>';
+  }
+}
+async function replayApi(id){
+  try { await fetch(API_BASE + '/dlq/' + id + '/replay', {method:'POST'}); } catch(e) {}
+  replayedIds.add(id);
+  pollApi();
 }
 function setModeBadge(mode){
   const badge = document.getElementById('modeBadge');
@@ -217,24 +276,41 @@ function setModeBadge(mode){
     document.getElementById('modeNote').textContent = 'This page is served by the API in demo mode: the same pipeline runs on an in-memory bus. Run docker compose up for the real Kafka broker.';
   }
 }
-// Mode 1: served by the API — use the real SSE stream.
-if (window.EventSource) {
-  const es = new EventSource('/stream');
-  let gotStream = false;
-  es.onmessage = (e) => { gotStream = true; renderEvent(JSON.parse(e.data)); };
-  es.onerror = () => { if (!gotStream) startSimulator(); };
+// Mode selection, in order: same-origin API (SSE) → Vercel demo API (polling)
+// → browser simulator. The simulator never starts once an API mode is active.
+function startSse(){
+  if (window.EventSource) {
+    const es = new EventSource('/stream');
+    let gotStream = false;
+    es.onmessage = (e) => { gotStream = true; renderEvent(JSON.parse(e.data)); };
+    es.onerror = () => { if (!gotStream) startSimulator(); };
+  }
   setInterval(async () => {
     try {
       const s = await (await fetch('/stats')).json();
       setModeBadge(s.mode);
       renderStats(s); refreshPanels();
-    } catch(e) { startSimulator(); }
+    } catch(e) { /* transient: SSE feed continues, panels retry next tick */ }
   }, 2000);
 }
+async function init(){
+  const local = await okJson('/health', 3000);
+  if (local) { startSse(); return; }
+  const remote = await okJson(API_BASE + '/health', 5000);
+  if (remote) {
+    apiMode = true;
+    setApiBadge();
+    pollApi();
+    setInterval(pollApi, 2000);
+    return;
+  }
+  startSimulator();
+}
+init();
 // Mode 2: static hosting (GitHub Pages) — simulate the same event shapes in-browser.
 let simStarted = false;
 function startSimulator(){
-  if (simStarted) return; simStarted = true;
+  if (simStarted || apiMode) return; simStarted = true;
   document.getElementById('modeBadge').innerHTML = '<span class="dot"></span>DEMO · browser simulation (no backend)';
   document.getElementById('modeBadge').className = 'badge demo';
   document.getElementById('modeNote').textContent = 'This static demo simulates the same event stream in your browser. The full pipeline (API + Kafka) runs from the repo with docker compose up.';
