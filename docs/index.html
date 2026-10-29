@@ -4,83 +4,131 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>EventPulse — Real-time Kafka streaming demo</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
 <style>
-  :root { --bg:#0b0f14; --card:#131a24; --line:#223044; --text:#e8eef6; --dim:#93a4b8; --green:#34d399; --red:#f87171; --amber:#fbbf24; --blue:#60a5fa; }
-  * { box-sizing:border-box; }
-  body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--text); }
-  header { padding:28px 24px 8px; max-width:1100px; margin:0 auto; }
-  h1 { margin:0; font-size:28px; }
-  p.sub { color:var(--dim); margin:8px 0 0; max-width:760px; line-height:1.5; }
-  .badge { display:inline-block; margin-top:12px; padding:4px 10px; border-radius:999px; font-size:13px; background:#1e293b; border:1px solid var(--line); }
-  .badge.kafka { color:var(--green); border-color:#14532d; }
-  .badge.demo { color:var(--amber); border-color:#78350f; }
-  main { max-width:1100px; margin:0 auto; padding:20px 24px 40px; display:grid; gap:16px; }
-  .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; }
-  .card b { font-size:26px; display:block; }
-  .card span { color:var(--dim); font-size:13px; }
-  .grid2 { display:grid; grid-template-columns:1.4fr 1fr; gap:16px; }
-  @media (max-width:760px){ .grid2 { grid-template-columns:1fr; } }
-  .panel { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; }
-  .panel h2 { margin:0 0 12px; font-size:17px; }
-  #feed { list-style:none; margin:0; padding:0; max-height:420px; overflow:auto; font-size:14px; }
-  #feed li { padding:8px 0; border-bottom:1px solid #1c2735; line-height:1.4; }
-  .tag { display:inline-block; padding:1px 8px; border-radius:999px; font-size:12px; margin-right:6px; }
-  .order_created { background:#1e3a5f; color:var(--blue); }
-  .payment_succeeded { background:#123527; color:var(--green); }
-  .payment_failed, .inventory_failed { background:#3f1d1d; color:var(--red); }
-  .inventory_reserved { background:#3b2d12; color:var(--amber); }
-  .flag { color:var(--red); }
-  table { width:100%; border-collapse:collapse; font-size:14px; }
-  th { text-align:left; color:var(--dim); font-weight:600; padding:6px 4px; }
-  td { padding:6px 4px; border-top:1px solid #1c2735; vertical-align:top; }
-  button { background:#2563eb; color:#fff; border:0; border-radius:8px; padding:6px 12px; cursor:pointer; font-size:13px; }
-  button:hover { background:#1d4ed8; }
-  .bar-row { display:flex; align-items:center; gap:8px; margin:6px 0; font-size:14px; }
-  .bar-row span:first-child { width:170px; color:var(--dim); }
-  .bar { height:14px; background:var(--blue); border-radius:4px; min-width:4px; }
-  code { color:#cbd5e1; }
-  footer { max-width:1100px; margin:0 auto; padding:0 24px 32px; color:var(--dim); font-size:13px; line-height:1.6; }
-  a { color:var(--blue); }
+  /* shadcn-style dark design tokens */
+  :root {
+    --background: #09090b;
+    --card: #101013;
+    --card-hover: #17171a;
+    --border: #27272a;
+    --foreground: #fafafa;
+    --muted: #a1a1aa;
+    --muted-2: #71717a;
+    --primary: #fafafa;
+    --primary-fg: #09090b;
+    --green: #34d399;
+    --red: #f87171;
+    --amber: #fbbf24;
+    --blue: #60a5fa;
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: ui-sans-system, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background:
+      radial-gradient(600px 300px at 80% -50px, rgba(96, 165, 250, 0.12), transparent 70%),
+      radial-gradient(500px 260px at 10% -80px, rgba(52, 211, 153, 0.08), transparent 70%),
+      var(--background);
+    color: var(--foreground);
+    -webkit-font-smoothing: antialiased;
+  }
+  header { padding: 40px 24px 8px; max-width: 1100px; margin: 0 auto; }
+  h1 { margin: 0; font-size: 34px; letter-spacing: -0.03em; line-height: 1.1; }
+  h1 .accent { color: var(--blue); }
+  p.sub { color: var(--muted); margin: 10px 0 0; max-width: 760px; line-height: 1.6; font-size: 15px; }
+  /* shadcn-style badge */
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    margin-top: 14px; padding: 4px 12px; border-radius: 999px;
+    font-size: 12.5px; font-weight: 500;
+    background: #18181b; border: 1px solid var(--border); color: var(--muted);
+  }
+  .badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--amber); }
+  .badge.kafka { color: var(--green); border-color: #14532d; }
+  .badge.kafka .dot { background: var(--green); }
+  .badge.demo .dot { background: var(--amber); }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px 24px 40px; display: grid; gap: 16px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+  /* KokonutUI-style stat card: icon row, big number, hover lift + border glow */
+  .card {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 18px; transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+  }
+  .card:hover { transform: translateY(-2px); background: var(--card-hover); border-color: #3f3f46; }
+  .card .label { color: var(--muted); font-size: 13px; font-weight: 500; }
+  .card b { font-size: 30px; display: block; margin-top: 6px; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .card .hint { color: var(--muted-2); font-size: 12px; margin-top: 4px; }
+  .grid2 { display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px; }
+  @media (max-width: 760px) { .grid2 { grid-template-columns: 1fr; } }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; }
+  .panel h2 { margin: 0 0 14px; font-size: 16px; letter-spacing: -0.01em; }
+  #feed { list-style: none; margin: 0; padding: 0; max-height: 420px; overflow: auto; font-size: 14px; }
+  #feed li { padding: 9px 0; border-bottom: 1px solid #1c1c1f; line-height: 1.45; }
+  .tag { display: inline-block; padding: 1px 9px; border-radius: 999px; font-size: 12px; font-weight: 500; margin-right: 6px; }
+  .order_created { background: rgba(96, 165, 250, 0.14); color: var(--blue); }
+  .payment_succeeded { background: rgba(52, 211, 153, 0.13); color: var(--green); }
+  .payment_failed, .inventory_failed { background: rgba(248, 113, 113, 0.13); color: var(--red); }
+  .inventory_reserved { background: rgba(251, 191, 36, 0.13); color: var(--amber); }
+  .flag { color: var(--red); }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { text-align: left; color: var(--muted); font-weight: 500; font-size: 12.5px; padding: 6px 4px; }
+  td { padding: 8px 4px; border-top: 1px solid #1c1c1f; vertical-align: top; }
+  /* shadcn-style primary button */
+  button {
+    background: var(--primary); color: var(--primary-fg); border: 0; border-radius: 8px;
+    padding: 6px 14px; cursor: pointer; font-size: 13px; font-weight: 500;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+  }
+  button:hover { opacity: 0.88; transform: translateY(-1px); }
+  /* Bklit-style animated bars: smooth width transitions, hover value */
+  .bar-row { display: flex; align-items: center; gap: 8px; margin: 8px 0; font-size: 14px; }
+  .bar-row span:first-child { width: 170px; color: var(--muted); font-size: 13px; }
+  .bar { height: 16px; background: linear-gradient(90deg, #3b82f6, #60a5fa); border-radius: 6px; min-width: 4px; transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1); }
+  .bar-row b { font-variant-numeric: tabular-nums; }
+  code { color: #d4d4d8; background: #18181b; border: 1px solid var(--border); border-radius: 6px; padding: 1px 6px; font-size: 12.5px; }
+  footer { max-width: 1100px; margin: 0 auto; padding: 0 24px 32px; color: var(--muted); font-size: 13px; line-height: 1.6; }
+  a { color: var(--blue); }
 </style>
 </head>
 <body>
-<header>
-  <h1>EventPulse</h1>
+<header class="anim-in">
+  <h1>Event<span class="accent">Pulse</span></h1>
   <p class="sub">A real-time event streaming platform. Producers publish orders, payments, and inventory
   events to Kafka topics; stream processors screen for fraud, aggregate revenue, and route poison
   messages to a dead-letter queue with replay. Watch it live below.</p>
-  <span id="modeBadge" class="badge demo">Connecting…</span>
+  <span id="modeBadge" class="badge demo"><span class="dot"></span>Connecting…</span>
 </header>
 <main>
   <div class="cards">
-    <div class="card"><b id="statTotal">0</b><span>Total events processed</span></div>
-    <div class="card"><b id="statRevenue">$0</b><span>Revenue (payments succeeded)</span></div>
-    <div class="card"><b id="statFlagged">0</b><span>Orders flagged by fraud rules</span></div>
-    <div class="card"><b id="statDlq">0</b><span>Dead-letter queue depth</span></div>
+    <div class="card anim-in"><div class="label">Total events processed</div><b id="statTotal">0</b><div class="hint">Across all topics</div></div>
+    <div class="card anim-in"><div class="label">Revenue · payments succeeded</div><b id="statRevenue">$0</b><div class="hint">Live aggregate</div></div>
+    <div class="card anim-in"><div class="label">Orders flagged by fraud rules</div><b id="statFlagged">0</b><div class="hint">High value · velocity · bursts</div></div>
+    <div class="card anim-in"><div class="label">Dead-letter queue depth</div><b id="statDlq">0</b><div class="hint">Poison messages awaiting replay</div></div>
   </div>
   <div class="grid2">
-    <div class="panel">
+    <div class="panel anim-in">
       <h2>Live event feed</h2>
       <ul id="feed"></ul>
     </div>
     <div>
-      <div class="panel" style="margin-bottom:16px">
+      <div class="panel anim-in" style="margin-bottom:16px">
         <h2>Events by type</h2>
         <div id="bars"></div>
       </div>
-      <div class="panel">
+      <div class="panel anim-in">
         <h2>Dead-letter queue</h2>
         <div id="dlq">Loading…</div>
       </div>
     </div>
   </div>
-  <div class="panel">
+  <div class="panel anim-in">
     <h2>Fraud flags</h2>
     <div id="flags">None yet.</div>
   </div>
 </main>
-<footer>
+<footer class="anim-in">
   <p>Architecture: FastAPI producers/consumers · Kafka topics <code>orders</code>, <code>payments</code>,
   <code>inventory</code> · consumer group <code>eventpulse-pipeline</code> · idempotent ingestion ·
   DLQ + replay. <span id="modeNote"></span></p>
@@ -90,33 +138,62 @@
 <script>
 const feedEl = document.getElementById('feed');
 const MAX_FEED = 60;
+const hasAnime = typeof anime !== 'undefined';
+// Anime.js entrance: staggered fade + rise. Content is visible without it
+// (no opacity-0 in CSS), so a blocked CDN never hides the page.
+if (hasAnime) {
+  anime({
+    targets: '.anim-in',
+    opacity: [0, 1],
+    translateY: [14, 0],
+    delay: anime.stagger(70),
+    duration: 700,
+    easing: 'easeOutExpo'
+  });
+}
 function typeTag(t){ return '<span class="tag ' + t + '">' + t + '</span>'; }
 function renderEvent(ev){
   const li = document.createElement('li');
   const amt = ev.payload && ev.payload.amount !== undefined ? ' · $' + ev.payload.amount : '';
   const prod = ev.payload && ev.payload.product ? ' · ' + ev.payload.product : '';
   li.innerHTML = typeTag(ev.type) + '<b>' + ev.key + '</b>' + prod + amt +
-    ' <span style="color:#93a4b8">' + new Date(ev.timestamp).toLocaleTimeString() + '</span>';
+    ' <span style="color:#a1a1aa">' + new Date(ev.timestamp).toLocaleTimeString() + '</span>';
   feedEl.prepend(li);
+  if (hasAnime) {
+    anime({ targets: li, opacity: [0, 1], translateX: [-12, 0], duration: 400, easing: 'easeOutQuad' });
+  }
   while (feedEl.children.length > MAX_FEED) feedEl.lastChild.remove();
 }
+// Animated count-up for the two big numbers (Anime.js object tween).
+const shown = { total: 0, revenue: 0 };
+function countUp(key, el, to, money){
+  const from = shown[key];
+  if (from === to) return;
+  shown[key] = to;
+  if (!hasAnime) { el.textContent = money ? '$' + to.toLocaleString() : to; return; }
+  const obj = { v: from };
+  anime({
+    targets: obj, v: to, duration: 600, easing: 'easeOutQuad',
+    update: function(){ el.textContent = money ? '$' + Math.round(obj.v).toLocaleString() : Math.round(obj.v); }
+  });
+}
 function renderStats(s){
-  document.getElementById('statTotal').textContent = s.total_events;
-  document.getElementById('statRevenue').textContent = '$' + s.revenue.toLocaleString();
+  countUp('total', document.getElementById('statTotal'), s.total_events, false);
+  countUp('revenue', document.getElementById('statRevenue'), s.revenue, true);
   document.getElementById('statFlagged').textContent = s.flagged;
   document.getElementById('statDlq').textContent = s.dlq_depth;
   const bars = document.getElementById('bars');
   const max = Math.max(1, ...Object.values(s.counts));
   bars.innerHTML = Object.entries(s.counts).sort((a,b)=>b[1]-a[1]).map(([t,c]) =>
     '<div class="bar-row"><span>' + t + '</span><div class="bar" style="width:' + (c/max*100) + '%"></div><b>' + c + '</b></div>'
-  ).join('') || '<span style="color:#93a4b8">No events yet.</span>';
+  ).join('') || '<span style="color:#a1a1aa">No events yet.</span>';
 }
 async function refreshPanels(){
   try {
     const dlq = await (await fetch('/dlq')).json();
     document.getElementById('dlq').innerHTML = dlq.length === 0 ? 'Empty — healthy.' :
       '<table><tr><th>Event</th><th>Error</th><th></th></tr>' + dlq.map(d =>
-        '<tr><td>' + d.event.type + '<br><span style="color:#93a4b8">' + d.event.id + '</span></td><td>' + d.error + '</td>' +
+        '<tr><td>' + d.event.type + '<br><span style="color:#a1a1aa">' + d.event.id + '</span></td><td>' + d.error + '</td>' +
         '<td><button onclick="replay(\'' + d.event.id + '\')">Replay</button></td></tr>').join('') + '</table>';
     const flags = await (await fetch('/flagged')).json();
     document.getElementById('flags').innerHTML = flags.length === 0 ? 'None yet.' :
@@ -128,6 +205,18 @@ async function replay(id){
   await fetch('/dlq/' + id + '/replay', {method:'POST'});
   refreshPanels();
 }
+function setModeBadge(mode){
+  const badge = document.getElementById('modeBadge');
+  if (mode === 'kafka') {
+    badge.innerHTML = '<span class="dot"></span>LIVE · Kafka broker connected';
+    badge.className = 'badge kafka';
+    document.getElementById('modeNote').textContent = 'This deployment is streaming through a real Kafka-compatible broker.';
+  } else {
+    badge.innerHTML = '<span class="dot"></span>DEMO · in-memory bus';
+    badge.className = 'badge demo';
+    document.getElementById('modeNote').textContent = 'This page is served by the API in demo mode: the same pipeline runs on an in-memory bus. Run docker compose up for the real Kafka broker.';
+  }
+}
 // Mode 1: served by the API — use the real SSE stream.
 if (window.EventSource) {
   const es = new EventSource('/stream');
@@ -137,11 +226,7 @@ if (window.EventSource) {
   setInterval(async () => {
     try {
       const s = await (await fetch('/stats')).json();
-      document.getElementById('modeBadge').textContent = s.mode === 'kafka' ? 'LIVE · Kafka broker connected' : 'DEMO · in-memory bus';
-      document.getElementById('modeBadge').className = 'badge ' + (s.mode === 'kafka' ? 'kafka' : 'demo');
-      document.getElementById('modeNote').textContent = s.mode === 'kafka'
-        ? 'This deployment is streaming through a real Kafka-compatible broker.'
-        : 'This page is served by the API in demo mode: the same pipeline runs on an in-memory bus. Run docker compose up for the real Kafka broker.';
+      setModeBadge(s.mode);
       renderStats(s); refreshPanels();
     } catch(e) { startSimulator(); }
   }, 2000);
@@ -150,7 +235,7 @@ if (window.EventSource) {
 let simStarted = false;
 function startSimulator(){
   if (simStarted) return; simStarted = true;
-  document.getElementById('modeBadge').textContent = 'DEMO · browser simulation (no backend)';
+  document.getElementById('modeBadge').innerHTML = '<span class="dot"></span>DEMO · browser simulation (no backend)';
   document.getElementById('modeBadge').className = 'badge demo';
   document.getElementById('modeNote').textContent = 'This static demo simulates the same event stream in your browser. The full pipeline (API + Kafka) runs from the repo with docker compose up.';
   const types = ['order_created','payment_succeeded','payment_failed','inventory_reserved','inventory_failed'];
