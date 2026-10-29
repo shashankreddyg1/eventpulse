@@ -5,12 +5,16 @@ orders, payments, and inventory events; stream processors screen for fraud,
 aggregate revenue, and route poison messages to a dead-letter queue with replay.
 
 **Live demo:** https://shashankreddyg1.github.io/eventpulse/
+**Demo API:** https://eventpulse-p35urqhqi-remy-4674.vercel.app (serverless, synthesized demo data)
 
-> Demo honesty: the GitHub Pages demo simulates the event stream in your
-> browser (no backend on a static host). The full pipeline — FastAPI API,
-> Kafka consumers, DLQ + replay — runs locally with `docker compose up`
-> (Redpanda, Kafka-compatible) or in demo mode with `DEMO_MODE=true`, no
-> broker required. The dashboard served by the API uses the real SSE stream.
+> Demo honesty: the GitHub Pages demo is served by the demo API above
+> (synthesized demo data in the same event shapes — serverless functions
+> cannot hold the background generator or shared state, so the feed is
+> clock-synthesized and DLQ replays are acknowledged, not persisted).
+> The full pipeline — FastAPI API, Kafka consumers, DLQ + replay — runs
+> locally with `docker compose up` (Redpanda, Kafka-compatible) or in
+> demo mode with `DEMO_MODE=true`, no broker required. The dashboard
+> served by the API uses the real SSE stream.
 
 ## What it demonstrates
 
